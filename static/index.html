@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok → Instagram Automation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #333; margin-bottom: 30px; text-align: center; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .card h2 { color: #555; margin-bottom: 15px; font-size: 18px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 10px; }
+        button:hover { background: #0056b3; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        input, textarea { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
+        .status { padding: 10px; margin-top: 10px; border-radius: 4px; font-size: 14px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .video-list { max-height: 300px; overflow-y: auto; }
+        .video-item { padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .video-item button { width: auto; margin: 0; padding: 5px 10px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 TikTok → Instagram Automation</h1>
+        
+        <div class="grid">
+            <div class="card">
+                <h2>📥 Télécharger TikTok</h2>
+                <input type="number" id="maxVideos" placeholder="Nombre de vidéos (défaut: 10)" value="10">
+                <button onclick="downloadTikTok()">Télécharger</button>
+                <button onclick="checkStatus()">Vérifier le statut</button>
+                <div id="tiktokStatus"></div>
+            </div>
+
+            <div class="card">
+                <h2>📱 Instagram</h2>
+                <input type="text" id="instaUser" placeholder="Nom d'utilisateur">
+                <input type="password" id="instaPass" placeholder="Mot de passe">
+                <button onclick="loginInstagram()">Se connecter</button>
+                <button onclick="logoutInstagram()" class="danger">Se déconnecter</button>
+                <div id="instaStatus"></div>
+            </div>
+
+            <div class="card">
+                <h2>📤 Publier sur Instagram</h2>
+                <input type="text" id="videoId" placeholder="ID vidéo (optionnel)">
+                <textarea id="caption" placeholder="Légende (optionnel)" rows="3"></textarea>
+                <button onclick="postVideo()">Publier</button>
+                <div id="postStatus"></div>
+            </div>
+
+            <div class="card">
+                <h2>⏰ Planificateur</h2>
+                <input type="text" id="postTimes" placeholder="Heures (ex: 09:00,15:00,21:00)">
+                <button onclick="updateTimes()">Mettre à jour</button>
+                <button onclick="startScheduler()">Démarrer</button>
+                <button onclick="stopScheduler()" class="danger">Arrêter</button>
+                <button onclick="triggerPost()">Publier maintenant</button>
+                <button onclick="getSchedulerStatus()">Statut</button>
+                <div id="schedulerStatus"></div>
+            </div>
+
+            <div class="card">
+                <h2>🎥 Vidéos locales</h2>
+                <button onclick="loadVideos()">Actualiser</button>
+                <div id="videosList" class="video-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:8000';
+
+        async function api(endpoint, method = 'GET', body = null) {
+            const options = { method, headers: { 'Content-Type': 'application/json' } };
+            if (body) options.body = JSON.stringify(body);
+            const res = await fetch(API + endpoint, options);
+            return await res.json();
+        }
+
+        function showStatus(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            el.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        async function downloadTikTok() {
+            const max = document.getElementById('maxVideos').value || 10;
+            showStatus('tiktokStatus', 'Téléchargement en cours...', 'info');
+            const res = await api('/tiktok/download', 'POST', { max_videos: parseInt(max) });
+            showStatus('tiktokStatus', res.message || 'Téléchargement démarré', 'success');
+        }
+
+        async function checkStatus() {
+            const res = await api('/tiktok/download/status');
+            showStatus('tiktokStatus', `Statut: ${res.status} | Téléchargés: ${res.downloaded} | Erreurs: ${res.errors}`, 'info');
+        }
+
+        async function loginInstagram() {
+            const username = document.getElementById('instaUser').value;
+            const password = document.getElementById('instaPass').value;
+            if (!username || !password) return showStatus('instaStatus', 'Remplissez les champs', 'error');
+            showStatus('instaStatus', 'Connexion...', 'info');
+            const res = await api('/instagram/login', 'POST', { username, password });
+            showStatus('instaStatus', res.message || 'Connecté', res.success ? 'success' : 'error');
+        }
+
+        async function logoutInstagram() {
+            const res = await api('/instagram/logout', 'POST');
+            showStatus('instaStatus', res.message || 'Déconnecté', 'success');
+        }
+
+        async function postVideo() {
+            const video_id = document.getElementById('videoId').value || null;
+            const caption = document.getElementById('caption').value || null;
+            showStatus('postStatus', 'Publication...', 'info');
+            const res = await api('/instagram/post', 'POST', { video_id, caption });
+            showStatus('postStatus', res.message || 'Publié', res.success ? 'success' : 'error');
+        }
+
+        async function updateTimes() {
+            const times = document.getElementById('postTimes').value.split(',').map(t => t.trim());
+            const res = await api('/scheduler/times', 'PUT', { times });
+            showStatus('schedulerStatus', res.message || 'Heures mises à jour', 'success');
+        }
+
+        async function startScheduler() {
+            const res = await api('/scheduler/start', 'POST');
+            showStatus('schedulerStatus', res.message || 'Planificateur démarré', 'success');
+        }
+
+        async function stopScheduler() {
+            const res = await api('/scheduler/stop', 'POST');
+            showStatus('schedulerStatus', res.message || 'Planificateur arrêté', 'success');
+        }
+
+        async function triggerPost() {
+            showStatus('schedulerStatus', 'Publication...', 'info');
+            const res = await api('/scheduler/trigger', 'POST');
+            showStatus('schedulerStatus', res.message || 'Publication déclenchée', res.success ? 'success' : 'error');
+        }
+
+        async function getSchedulerStatus() {
+            const res = await api('/scheduler/status');
+            showStatus('schedulerStatus', `Actif: ${res.is_running} | Prochaine: ${res.next_run_time || 'N/A'}`, 'info');
+        }
+
+        async function loadVideos() {
+            const res = await api('/videos/');
+            const list = document.getElementById('videosList');
+            if (!res.videos || res.videos.length === 0) {
+                list.innerHTML = '<div class="status info">Aucune vidéo</div>';
+                return;
+            }
+            list.innerHTML = res.videos.map(v => `
+                <div class="video-item">
+                    <span>${v}</span>
+                    <button onclick="deleteVideo('${v}')" class="danger">Supprimer</button>
+                </div>
+            `).join('');
+        }
+
+        async function deleteVideo(filename) {
+            if (!confirm('Supprimer ' + filename + '?')) return;
+            await api('/videos/' + filename, 'DELETE');
+            loadVideos();
+        }
+
+        loadVideos();
+    </script>
+</body>
+</html>

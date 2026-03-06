@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: tiktok-instagram-automation
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: TIKTOK_USERNAME
+        sync: false
+      - key: INSTAGRAM_USERNAME
+        sync: false
+      - key: INSTAGRAM_PASSWORD
+        sync: false
+      - key: VIDEO_FOLDER
+        value: videos
+      - key: STATE_FILE
+        value: downloaded.json
