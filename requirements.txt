@@ -4,3 +4,5 @@ yt-dlp
 instagrapi
 apscheduler
 python-dotenv
+streamlit
+requests
