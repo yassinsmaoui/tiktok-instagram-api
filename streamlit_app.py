@@ -40,21 +40,18 @@ with tab1:
         if st.button("🚀 Démarrer le téléchargement", use_container_width=True):
             with st.spinner("Téléchargement en cours..."):
                 try:
-                    result = tiktok_service.download_videos(tiktok_username, max_videos)
-                    st.success(f"✅ {result['downloaded']} vidéos téléchargées")
-                    if result['errors'] > 0:
-                        st.warning(f"⚠️ {result['errors']} erreurs")
+                    result = tiktok_service.download_videos(tiktok_username)
+                    st.success(f"✅ {len(result['new_downloads'])} nouvelles vidéos téléchargées")
+                    if result['errors']:
+                        st.warning(f"⚠️ {len(result['errors'])} erreurs")
                 except Exception as e:
                     st.error(f"❌ Erreur: {str(e)}")
     
     with col2:
         if st.button("🔍 Vérifier le statut", use_container_width=True):
             try:
-                status = tiktok_service.get_download_status()
-                st.metric("Statut", status.get("status", "N/A"))
-                col_a, col_b = st.columns(2)
-                col_a.metric("Téléchargés", status.get("downloaded", 0))
-                col_b.metric("Erreurs", status.get("errors", 0))
+                downloaded_ids = tiktok_service.get_downloaded_ids()
+                st.metric("Total téléchargés", len(downloaded_ids))
             except Exception as e:
                 st.error(f"❌ Erreur: {str(e)}")
 
