@@ -26,7 +26,18 @@ def get_client(username: str = None, password: str = None) -> Client:
         if not uname or not pwd:
             raise ValueError("Instagram credentials not configured.")
         
-        # Try to load session first
+        # Try to load session from environment variable (Streamlit secrets)
+        session_data = os.getenv(f"INSTAGRAM_SESSION_{uname.upper()}")
+        if session_data:
+            try:
+                import json
+                _client.set_settings(json.loads(session_data))
+                _client.login(uname, pwd)
+                return _client
+            except:
+                pass
+        
+        # Try to load session from file (local)
         session_file = f"session_{uname}.json"
         if os.path.exists(session_file):
             try:
@@ -42,7 +53,7 @@ def get_client(username: str = None, password: str = None) -> Client:
             _client.login(uname, pwd)
             _client.dump_settings(session_file)
         except ChallengeRequired as e:
-            raise Exception("Instagram demande une vérification. Connectez-vous manuellement sur votre téléphone/navigateur, puis réessayez.")
+            raise Exception("Instagram demande une vérification. Utilisez 'generate_session.py' en local pour créer une session, puis uploadez-la sur Streamlit Cloud.")
         except Exception as e:
             raise Exception(f"Erreur de connexion: {str(e)}")
     
