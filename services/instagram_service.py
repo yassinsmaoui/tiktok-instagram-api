@@ -1,7 +1,9 @@
 import os
 import re
 import random
+import time
 from instagrapi import Client
+from instagrapi.exceptions import ChallengeRequired, LoginRequired
 from config import (
     INSTAGRAM_USERNAME,
     INSTAGRAM_PASSWORD,
@@ -17,11 +19,33 @@ def get_client(username: str = None, password: str = None) -> Client:
     global _client
     if _client is None:
         _client = Client()
+        _client.delay_range = [2, 5]
+        
         uname = username or INSTAGRAM_USERNAME
         pwd = password or INSTAGRAM_PASSWORD
         if not uname or not pwd:
             raise ValueError("Instagram credentials not configured.")
-        _client.login(uname, pwd)
+        
+        # Try to load session first
+        session_file = f"session_{uname}.json"
+        if os.path.exists(session_file):
+            try:
+                _client.load_settings(session_file)
+                _client.login(uname, pwd)
+                _client.get_timeline_feed()
+                return _client
+            except:
+                pass
+        
+        # Fresh login
+        try:
+            _client.login(uname, pwd)
+            _client.dump_settings(session_file)
+        except ChallengeRequired as e:
+            raise Exception("Instagram demande une vérification. Connectez-vous manuellement sur votre téléphone/navigateur, puis réessayez.")
+        except Exception as e:
+            raise Exception(f"Erreur de connexion: {str(e)}")
+    
     return _client
 
 
